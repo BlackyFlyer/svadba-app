@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1007.0",
     "@supabase/supabase-js": "^2.98.0",
     "framer-motion": "^12.35.2",
     "lucide-react": "^0.577.0",

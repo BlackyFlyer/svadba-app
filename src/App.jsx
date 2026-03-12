@@ -10,12 +10,6 @@ const supabase =
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
-const BUCKET_NAME = "wedding-photos";
-
-function randomId() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 function formatBytes(bytes) {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -113,50 +107,47 @@ export default function App() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-      const filePath = `${slug}/${Date.now()}-${randomId()}-${safeName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type,
+      try {
+        const fileBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = () => {
+            const result = reader.result?.toString() || "";
+            const base64 = result.split(",")[1];
+            resolve(base64);
+          };
+
+          reader.onerror = () => reject(new Error("Ne mogu pročitati datoteku."));
+          reader.readAsDataURL(file);
         });
 
-      if (uploadError) {
-        setError(`Greška kod uploada u storage: ${uploadError.message}`);
-        continue;
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type,
+            fileBase64,
+            guestName,
+            slug,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          setError(`Greška kod uploada: ${result.error || "Nepoznata greška"}`);
+          continue;
+        }
+
+        successCount += 1;
+        setProgress(Math.round(((i + 1) / files.length) * 100));
+      } catch (err) {
+        setError(err.message || "Dogodila se greška kod uploada.");
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(filePath);
-
-      const publicUrl = publicUrlData?.publicUrl || "";
-
-      const insertPayload = {
-        event_slug: slug,
-        file_path: filePath,
-        original_name: file.name,
-        uploaded_at: new Date().toISOString(),
-        public_url: publicUrl,
-        file_size: file.size,
-        guest_name: guestName || null,
-        extension: file.name.split(".").pop()?.toLowerCase() || "jpg",
-      };
-
-      const { error: insertError } = await supabase
-        .from("wedding_photos")
-        .insert(insertPayload);
-
-      if (insertError) {
-        setError(`Greška baze: ${insertError.message}`);
-        continue;
-      }
-
-      successCount += 1;
-      setProgress(Math.round(((i + 1) / files.length) * 100));
     }
 
     await loadPhotos();
@@ -175,24 +166,13 @@ export default function App() {
     setError("");
     setSuccess("");
 
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([photo.file_path]);
-
-    if (storageError) {
-      setError(`Nisam uspio obrisati sliku: ${storageError.message}`);
-      return;
-    }
-
     const { error: dbError } = await supabase
       .from("wedding_photos")
       .delete()
       .eq("id", photo.id);
 
     if (dbError) {
-      setError(
-        `Slika je obrisana iz storagea, ali ne i iz baze: ${dbError.message}`
-      );
+      setError(`Nisam uspio obrisati zapis iz baze: ${dbError.message}`);
       return;
     }
 
@@ -216,7 +196,6 @@ export default function App() {
 
         :root {
           --gold: #b89a3a;
-          --gold-deep: #9b7a1b;
           --gold-soft: #d9c486;
           --ink: #403a3b;
           --muted: #6d6668;
@@ -670,7 +649,11 @@ export default function App() {
           <section className="hero">
             <div className="heroCard">
               <div className="eyebrow">Svadbeni foto kutak</div>
-              <img className="titleLogo" src="/monika-mario-logo-gold.png" alt={eventName} />
+              <img
+                className="titleLogo"
+                src="/monika-mario-logo-gold.png"
+                alt={eventName}
+              />
               <p className="subtitle">
                 Podijelite najljepše trenutke sa svadbe i pošaljite svoje
                 fotografije mladencima.
@@ -683,16 +666,21 @@ export default function App() {
               <h2 className="cardTitle">Admin QR za ispis</h2>
               <div className="qrBox" style={{ marginTop: 0 }}>
                 <div>
-                  {qrDataUrl ? <img className="qrImg" src={qrDataUrl} alt="QR kod" /> : null}
+                  {qrDataUrl ? (
+                    <img className="qrImg" src={qrDataUrl} alt="QR kod" />
+                  ) : null}
                 </div>
                 <div>
                   <div className="smallLabel">Link za goste</div>
                   <div className="linkText">{uploadUrl}</div>
                   <div className="helperText">
-                    Ovaj QR je vidljiv samo na admin linku i služi za ispis na stolove.
+                    Ovaj QR je vidljiv samo na admin linku i služi za ispis na
+                    stolove.
                   </div>
                   <div style={{ marginTop: 14 }}>
-                    <button className="btnGhost" onClick={downloadQR}>Preuzmi QR</button>
+                    <button className="btnGhost" onClick={downloadQR}>
+                      Preuzmi QR
+                    </button>
                   </div>
                 </div>
               </div>
@@ -747,7 +735,10 @@ export default function App() {
 
               {progress > 0 ? (
                 <div className="progressWrap">
-                  <div className="progressBar" style={{ width: `${progress}%` }} />
+                  <div
+                    className="progressBar"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
               ) : null}
 
@@ -784,11 +775,18 @@ export default function App() {
                     />
                     <div className="photoBody">
                       <div className="photoName">{photo.original_name}</div>
-                      <div className="photoMeta">{formatBytes(photo.file_size)}</div>
+                      <div className="photoMeta">
+                        {formatBytes(photo.file_size)}
+                      </div>
                       {photo.guest_name ? (
-                        <div className="photoMeta">Poslao/la: {photo.guest_name}</div>
+                        <div className="photoMeta">
+                          Poslao/la: {photo.guest_name}
+                        </div>
                       ) : null}
-                      <button className="btnDelete" onClick={() => removePhoto(photo)}>
+                      <button
+                        className="btnDelete"
+                        onClick={() => removePhoto(photo)}
+                      >
                         Obriši
                       </button>
                     </div>
@@ -803,7 +801,10 @@ export default function App() {
           <div className="lightbox" onClick={() => setSelectedPhoto(null)}>
             <div className="lightboxInner" onClick={(e) => e.stopPropagation()}>
               <div className="lightboxTop">
-                <button className="btnClose" onClick={() => setSelectedPhoto(null)}>
+                <button
+                  className="btnClose"
+                  onClick={() => setSelectedPhoto(null)}
+                >
                   Zatvori
                 </button>
               </div>
