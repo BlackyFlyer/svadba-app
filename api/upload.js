@@ -25,16 +25,41 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { fileName, fileType, fileBase64, guestName, slug } = req.body;
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+
+    const { fileName, fileType, fileBase64, guestName, slug } = body;
 
     if (!fileName || !fileType || !fileBase64 || !slug) {
-      return res.status(400).json({ error: "Nedostaju podaci." });
+      return res.status(400).json({
+        error: "Nedostaju podaci za upload.",
+        debug: {
+          hasFileName: Boolean(fileName),
+          hasFileType: Boolean(fileType),
+          hasFileBase64: Boolean(fileBase64),
+          hasSlug: Boolean(slug),
+        },
+      });
     }
 
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
     const filePath = `${slug}/${Date.now()}-${randomId()}-${safeName}`;
-
     const buffer = Buffer.from(fileBase64, "base64");
+
+    console.log("UPLOAD START", {
+      fileName,
+      fileType,
+      slug,
+      filePath,
+      size: buffer.length,
+      bucket: process.env.R2_BUCKET_NAME,
+      hasR2AccountId: Boolean(process.env.R2_ACCOUNT_ID),
+      hasR2AccessKey: Boolean(process.env.R2_ACCESS_KEY_ID),
+      hasR2Secret: Boolean(process.env.R2_SECRET_ACCESS_KEY),
+      hasPublicBaseUrl: Boolean(process.env.R2_PUBLIC_BASE_URL),
+      hasSupabaseUrl: Boolean(process.env.VITE_SUPABASE_URL),
+      hasServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    });
 
     await r2.send(
       new PutObjectCommand({
@@ -45,9 +70,9 @@ export default async function handler(req, res) {
       })
     );
 
-    const publicUrl = `${process.env.R2_PUBLIC_BASE_URL}/${filePath}`;
+    const publicUrl = `${process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/${filePath}`;
 
-    const { error } = await supabase.from("wedding_photos").insert({
+    const { error: dbError } = await supabase.from("wedding_photos").insert({
       event_slug: slug,
       file_path: filePath,
       original_name: fileName,
@@ -58,14 +83,23 @@ export default async function handler(req, res) {
       extension: fileName.split(".").pop()?.toLowerCase() || "jpg",
     });
 
-    if (error) {
-      return res.status(500).json({ error: error.message });
+    if (dbError) {
+      console.error("SUPABASE INSERT ERROR", dbError);
+      return res.status(500).json({
+        error: `Supabase insert error: ${dbError.message}`,
+      });
     }
 
-    return res.status(200).json({ ok: true, publicUrl });
+    return res.status(200).json({
+      ok: true,
+      publicUrl,
+    });
   } catch (err) {
+    console.error("UPLOAD API ERROR", err);
+
     return res.status(500).json({
-      error: err.message || "Greška kod uploada.",
+      error: err?.message || "Greška kod uploada.",
+      stack: err?.stack || null,
     });
   }
 }
