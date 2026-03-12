@@ -80,6 +80,7 @@ export default async function handler(req, res) {
       public_url: publicUrl,
       file_size: buffer.length,
       guest_name: guestName || null,
+      upload_code: null,
       extension: fileName.split(".").pop()?.toLowerCase() || "jpg",
     });
 
