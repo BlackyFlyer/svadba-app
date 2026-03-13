@@ -62,7 +62,7 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   const isConfigured = Boolean(supabase);
-  const uploadUrl = useMemo(() => `${window.location.origin}/${slug}`, [slug]);
+  const uploadUrl = useMemo(() => `${window.location.origin}/`, []);
 
   useEffect(() => {
     QRCode.toDataURL(uploadUrl, {
@@ -266,7 +266,7 @@ export default function App() {
           font-family: "Playfair Display", serif;
           background:
             linear-gradient(rgba(255,255,255,0.76), rgba(255,255,255,0.86)),
-            url('/svecana_dvorana_stross_djakovo_v02.jpeg') center -120px / cover no-repeat fixed;
+            url('/svecana_dvorana_stross_djakovo_v02.jpg') center -120px / cover no-repeat fixed;
           position: relative;
         }
 
@@ -274,7 +274,7 @@ export default function App() {
           content: "";
           position: fixed;
           inset: 0;
-          background: url('/svecana_dvorana_stross_djakovo_v02.jpeg') center -120px / cover no-repeat;
+          background: url('/svecana_dvorana_stross_djakovo_v02.jpg') center -120px / cover no-repeat;
           opacity: 0.24;
           filter: contrast(1.06) saturate(0.94) brightness(1.03);
           pointer-events: none;
@@ -626,6 +626,46 @@ export default function App() {
           display: flex;
           justify-content: flex-end;
           margin-bottom: 14px;
+        }
+
+        @media (max-width: 900px) {
+          .hero {
+            min-height: 300px;
+            padding: 18px;
+          }
+
+          .heroCard { padding: 20px 16px; min-height: 140px; }
+          .subtitle { font-size: 22px; }
+          .qrBox { grid-template-columns: 1fr; text-align: center; }
+        }
+
+        @media (max-width: 640px) {
+          .shell {
+            width: min(100% - 14px, 100%);
+            padding: 8px 0 24px;
+          }
+
+          .hero {
+            min-height: 260px;
+            border-radius: 24px;
+            padding: 14px;
+          }
+
+          .heroCard,
+          .card { border-radius: 22px; }
+
+          .heroCard { min-height: 118px; }
+          .card { padding: 18px; }
+          .eyebrow { font-size: 15px; margin-bottom: 4px; }
+          .subtitle { font-size: 20px; margin-top: 4px; }
+          .cardTitle { font-size: 24px; margin-bottom: 14px; }
+          .dropzone { padding: 24px 14px; }
+          .dropTitle { font-size: 24px; }
+          .galleryGrid { grid-template-columns: 1fr 1fr; gap: 12px; }
+        }
+
+        @media (max-width: 430px) {
+          .galleryGrid { grid-template-columns: 1fr; }
         }
       `}</style>
 
