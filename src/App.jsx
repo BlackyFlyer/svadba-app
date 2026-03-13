@@ -10,11 +10,39 @@ const supabase =
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
+const DELETE_TOKENS_KEY = "wedding_delete_tokens_v1";
+
 function formatBytes(bytes) {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function readDeleteTokens() {
+  try {
+    const raw = localStorage.getItem(DELETE_TOKENS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDeleteToken(photoId, deleteToken) {
+  const current = readDeleteTokens();
+  current[String(photoId)] = deleteToken;
+  localStorage.setItem(DELETE_TOKENS_KEY, JSON.stringify(current));
+}
+
+function getDeleteToken(photoId) {
+  const current = readDeleteTokens();
+  return current[String(photoId)] || null;
+}
+
+function removeDeleteToken(photoId) {
+  const current = readDeleteTokens();
+  delete current[String(photoId)];
+  localStorage.setItem(DELETE_TOKENS_KEY, JSON.stringify(current));
 }
 
 export default function App() {
@@ -30,6 +58,7 @@ export default function App() {
   const [success, setSuccess] = useState("");
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [showAdmin] = useState(window.location.search.includes("admin=1"));
+  const [, forceRefreshTokens] = useState(0);
   const fileInputRef = useRef(null);
 
   const isConfigured = Boolean(supabase);
@@ -45,7 +74,7 @@ export default function App() {
       },
     })
       .then(setQrDataUrl)
-      .catch((err) => console.error("QR ERROR:", err));
+      .catch(() => {});
   }, [uploadUrl]);
 
   useEffect(() => {
@@ -143,6 +172,10 @@ export default function App() {
           continue;
         }
 
+        if (result.photoId && result.deleteToken) {
+          saveDeleteToken(result.photoId, result.deleteToken);
+        }
+
         successCount += 1;
         setProgress(Math.round(((i + 1) / files.length) * 100));
       } catch (err) {
@@ -151,6 +184,7 @@ export default function App() {
     }
 
     await loadPhotos();
+    forceRefreshTokens((v) => v + 1);
 
     if (successCount > 0) {
       setSuccess(`Spremljeno fotografija: ${successCount}`);
@@ -161,24 +195,43 @@ export default function App() {
   }
 
   async function removePhoto(photo) {
-    if (!supabase) return;
+    const deleteToken = getDeleteToken(photo.id);
+
+    if (!deleteToken) {
+      setError("Ovu fotografiju može obrisati samo uređaj s kojeg je poslana.");
+      return;
+    }
 
     setError("");
     setSuccess("");
 
-    const { error: dbError } = await supabase
-      .from("wedding_photos")
-      .delete()
-      .eq("id", photo.id);
+    const response = await fetch("/api/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        photoId: photo.id,
+        deleteToken,
+      }),
+    });
 
-    if (dbError) {
-      setError(`Nisam uspio obrisati zapis iz baze: ${dbError.message}`);
+    const result = await response.json();
+
+    if (!response.ok) {
+      setError(result.error || "Greška kod brisanja.");
       return;
     }
 
+    removeDeleteToken(photo.id);
     setPhotos((prev) => prev.filter((item) => item.id !== photo.id));
     setSuccess("Fotografija je obrisana.");
     if (selectedPhoto?.id === photo.id) setSelectedPhoto(null);
+    forceRefreshTokens((v) => v + 1);
+  }
+
+  function canDelete(photoId) {
+    return Boolean(getDeleteToken(photoId));
   }
 
   function downloadQR() {
@@ -241,7 +294,6 @@ export default function App() {
 
         .page {
           min-height: 100vh;
-          animation: fadeInPage 0.8s ease;
         }
 
         .shell {
@@ -350,11 +402,6 @@ export default function App() {
           outline: none;
         }
 
-        .input:focus {
-          border-color: var(--gold-soft);
-          box-shadow: 0 0 0 3px rgba(184,154,58,0.12);
-        }
-
         .dropzone {
           border: 2px dashed #dbc99b;
           border-radius: 30px;
@@ -385,20 +432,13 @@ export default function App() {
           border-radius: 999px;
           padding: 12px 18px;
           cursor: pointer;
-          transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
           font-weight: 600;
         }
-
-        .btnPrimary:hover,
-        .btnDelete:hover,
-        .btnClose:hover,
-        .btnGhost:hover { transform: translateY(-1px); }
 
         .btnPrimary {
           border: none;
           background: linear-gradient(135deg, #ceb45d 0%, #a88723 100%);
           color: white;
-          box-shadow: 0 12px 24px rgba(168, 135, 35, 0.22), inset 0 1px 0 rgba(255,255,255,0.25);
         }
 
         .btnDelete {
@@ -473,7 +513,6 @@ export default function App() {
         .progressBar {
           height: 100%;
           background: linear-gradient(135deg, #c5a64b 0%, #a88723 100%);
-          transition: width .2s ease;
         }
 
         .message {
@@ -526,8 +565,6 @@ export default function App() {
           border: 1px solid var(--line);
           border-radius: 24px;
           overflow: hidden;
-          box-shadow: 0 12px 30px rgba(77, 60, 48, 0.06);
-          animation: fadeInUp .35s ease;
         }
 
         .photoImg {
@@ -571,7 +608,6 @@ export default function App() {
           justify-content: center;
           padding: 20px;
           z-index: 9999;
-          animation: fadeInPage .2s ease;
         }
 
         .lightboxInner {
@@ -584,63 +620,12 @@ export default function App() {
           max-width: 100%;
           max-height: calc(90vh - 70px);
           border-radius: 20px;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.35);
         }
 
         .lightboxTop {
           display: flex;
           justify-content: flex-end;
           margin-bottom: 14px;
-        }
-
-        @keyframes fadeInPage {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 900px) {
-          .hero {
-            min-height: 300px;
-            padding: 18px;
-          }
-
-          .heroCard { padding: 20px 16px; min-height: 140px; }
-          .subtitle { font-size: 22px; }
-          .qrBox { grid-template-columns: 1fr; text-align: center; }
-        }
-
-        @media (max-width: 640px) {
-          .shell {
-            width: min(100% - 14px, 100%);
-            padding: 8px 0 24px;
-          }
-
-          .hero {
-            min-height: 260px;
-            border-radius: 24px;
-            padding: 14px;
-          }
-
-          .heroCard,
-          .card { border-radius: 22px; }
-
-          .heroCard { min-height: 118px; }
-          .card { padding: 18px; }
-          .eyebrow { font-size: 15px; margin-bottom: 4px; }
-          .subtitle { font-size: 20px; margin-top: 4px; }
-          .cardTitle { font-size: 24px; margin-bottom: 14px; }
-          .dropzone { padding: 24px 14px; }
-          .dropTitle { font-size: 24px; }
-          .galleryGrid { grid-template-columns: 1fr 1fr; gap: 12px; }
-        }
-
-        @media (max-width: 430px) {
-          .galleryGrid { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -783,12 +768,14 @@ export default function App() {
                           Poslao/la: {photo.guest_name}
                         </div>
                       ) : null}
-                      <button
-                        className="btnDelete"
-                        onClick={() => removePhoto(photo)}
-                      >
-                        Obriši
-                      </button>
+                      {canDelete(photo.id) ? (
+                        <button
+                          className="btnDelete"
+                          onClick={() => removePhoto(photo)}
+                        >
+                          Obriši
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 ))}
