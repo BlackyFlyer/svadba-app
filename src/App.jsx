@@ -267,7 +267,7 @@ export default function App() {
           font-family: "Playfair Display", serif;
           background:
             linear-gradient(rgba(255,255,255,0.76), rgba(255,255,255,0.86)),
-            url('/svecana_dvorana_stross_djakovo_v02.jpg') center -120px / cover no-repeat fixed;
+            url('/svecana_dvorana_stross_djakovo_v02.jpeg') center -120px / cover no-repeat fixed;
           position: relative;
         }
 
@@ -275,7 +275,7 @@ export default function App() {
           content: "";
           position: fixed;
           inset: 0;
-          background: url('/svecana_dvorana_stross_djakovo_v02.jpg') center -120px / cover no-repeat;
+          background: url('/svecana_dvorana_stross_djakovo_v02.jpeg') center -120px / cover no-repeat;
           opacity: 0.24;
           filter: contrast(1.06) saturate(0.94) brightness(1.03);
           pointer-events: none;
