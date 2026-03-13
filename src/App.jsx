@@ -147,7 +147,8 @@ export default function App() {
             resolve(base64);
           };
 
-          reader.onerror = () => reject(new Error("Ne mogu pročitati datoteku."));
+          reader.onerror = () =>
+            reject(new Error("Ne mogu pročitati datoteku."));
           reader.readAsDataURL(file);
         });
 
@@ -337,10 +338,11 @@ export default function App() {
 
         .eyebrow {
           color: var(--gold);
-          letter-spacing: 3px;
+          letter-spacing: 4px;
           text-transform: uppercase;
-          font-size: 18px;
-          margin-bottom: 6px;
+          font-size: 24px;
+          font-weight: 600;
+          margin-bottom: 8px;
         }
 
         .titleLogo {
@@ -354,9 +356,9 @@ export default function App() {
         .subtitle {
           margin: 4px 0 0;
           color: var(--muted);
-          font-size: 26px;
-          line-height: 1.55;
-          max-width: 720px;
+          font-size: 20px;
+          line-height: 1.45;
+          max-width: 680px;
         }
 
         .uploadWrap {
@@ -405,24 +407,10 @@ export default function App() {
         .dropzone {
           border: 2px dashed #dbc99b;
           border-radius: 30px;
-          padding: 24px 18px;
+          padding: 28px 18px;
           text-align: center;
           background: linear-gradient(180deg, rgba(255,253,248,0.84) 0%, rgba(255,255,255,0.92) 100%);
           cursor: pointer;
-        }
-
-        .dropTitle {
-          margin: 0;
-          color: var(--gold);
-          font-size: 30px;
-          font-style: italic;
-          font-weight: 500;
-        }
-
-        .dropText {
-          margin: 10px 0 16px;
-          color: var(--muted);
-          line-height: 1.7;
         }
 
         .btnPrimary,
@@ -635,7 +623,7 @@ export default function App() {
           }
 
           .heroCard { padding: 20px 16px; min-height: 140px; }
-          .subtitle { font-size: 22px; }
+          .subtitle { font-size: 18px; }
           .qrBox { grid-template-columns: 1fr; text-align: center; }
         }
 
@@ -656,11 +644,10 @@ export default function App() {
 
           .heroCard { min-height: 118px; }
           .card { padding: 18px; }
-          .eyebrow { font-size: 15px; margin-bottom: 4px; }
-          .subtitle { font-size: 20px; margin-top: 4px; }
+          .eyebrow { font-size: 18px; margin-bottom: 4px; }
+          .subtitle { font-size: 16px; margin-top: 4px; }
           .cardTitle { font-size: 24px; margin-bottom: 14px; }
           .dropzone { padding: 24px 14px; }
-          .dropTitle { font-size: 24px; }
           .galleryGrid { grid-template-columns: 1fr 1fr; gap: 12px; }
         }
 
@@ -673,7 +660,7 @@ export default function App() {
         <div className="shell">
           <section className="hero">
             <div className="heroCard">
-              <div className="eyebrow">Svadbeni foto kutak</div>
+              <div className="eyebrow">FOTO KUTAK</div>
               <img
                 className="titleLogo"
                 src="/monika-mario-logo-gold.png"
@@ -730,10 +717,6 @@ export default function App() {
                 className="dropzone"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <h3 className="dropTitle">Dodaj svoje uspomene</h3>
-                <div className="dropText">
-                  Klikni ovdje i odaberi jednu ili više fotografija.
-                </div>
                 <button
                   className="btnPrimary"
                   onClick={(e) => {
